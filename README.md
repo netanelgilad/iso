@@ -66,6 +66,12 @@ an interactive shell, and torn down — no container image pull, no VM.
 
 ---
 
+> **Where the examples live.** The `examples/` and `packages/` used below ship with iso. After a
+> `curl | bash` install they're under `~/.iso/dist/current/` — e.g.
+> `iso build -t hello ~/.iso/dist/current/examples/hello`. From a git clone, use `./examples/hello`.
+> The commands below use the clone-relative form; substitute the dist path if you installed via the
+> one-liner (`export EX=~/.iso/dist/current/examples` and use `$EX/...`).
+
 ## Images & JS build graphs
 
 An iso image is a content-addressed filesystem snapshot. You build one from an **`iso.build.mjs`**
