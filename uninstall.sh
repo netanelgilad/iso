@@ -39,9 +39,9 @@ for d in "$HOME/.local/bin" "/usr/local/bin"; do
   fi
 done
 
-# ---- remove installed code -------------------------------------------------------------------
-say "Removing installed code ($ISO_HOME/dist, $ISO_HOME/run)..."
-rm -rf "$ISO_HOME/dist" "$ISO_HOME/run" "$ISO_HOME/host.pid" "$ISO_HOME/host.log"
+# ---- remove installed code + derived build output (NOT user data) ----------------------------
+say "Removing installed code ($ISO_HOME/dist, $ISO_HOME/run, $ISO_HOME/base)..."
+rm -rf "$ISO_HOME/dist" "$ISO_HOME/run" "$ISO_HOME/base" "$ISO_HOME/host.pid" "$ISO_HOME/host.log"
 
 if [ "$PURGE" = "1" ]; then
   say "Purging ALL iso state ($ISO_HOME)..."
