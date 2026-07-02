@@ -1,7 +1,7 @@
 // iso CONTROL PLANE WORKER — the daemon's front door (the "iso Engine API", v0).
 // The iso CLI is a thin client; ALL state and execution live behind this Worker.
 //
-// Routes (subset of docs/iso-design.md §"iso Engine API"):
+// Routes (subset of docs/design.md §"iso Engine API"):
 //   POST   /v0/machines           {image, cmd, args, env} → run: boot a Machine DO, run cmd, register
 //   GET    /v0/machines           ps: list machines from the registry
 //   POST   /v0/machines/{id}/exec {cmd, args, env}        → run another cmd in the SAME machine
@@ -138,7 +138,7 @@ async function reg(env, path, init) {
   return registry(env).fetch(new Request("http://reg" + path, init));
 }
 
-// ---- volumes (docs/iso-volumes.md) --------------------------------------------------------
+// ---- volumes (docs/volumes.md) --------------------------------------------------------
 // mount-path validation: absolute, and NOT under the trees the image snapshot excludes (a
 // mount hidden under /tmp or /root would silently vanish from commits) nor over the rootfs.
 const FORBIDDEN_MOUNT_PREFIXES = ["/tmp", "/root", "/usr", "/bundle", "/dev", "/proc", "/etc"];
@@ -208,7 +208,7 @@ export default {
     const url = new URL(request.url);
     const parts = url.pathname.split("/").filter(Boolean); // ["v0","machines",...]
 
-    // NETWORKS (docs/iso-networks.md) — the egress seams, checked FIRST (a member's target URL
+    // NETWORKS (docs/networks.md) — the egress seams, checked FIRST (a member's target URL
     // may legitimately contain /v0 paths, e.g. an iso registry member's API):
     // 1) policy-originated traffic — the policy isolate's fetch-shadow tags every request.
     if (request.headers.get("x-iso-pol")) return handlePolicyTagged(env, request);
@@ -298,7 +298,7 @@ export default {
         }
       }
 
-      // ---- /v0/volumes — docs/iso-volumes.md (checkpointed, driver-backed, versioned) ----
+      // ---- /v0/volumes — docs/volumes.md (checkpointed, driver-backed, versioned) ----
       if (parts[1] === "volumes") {
         // POST /v0/volumes {name, driverPath?}
         if (parts.length === 2 && request.method === "POST") {
@@ -379,7 +379,7 @@ export default {
         return Response.json({ error: "unhandled volumes route" }, { status: 404 });
       }
 
-      // ---- /v0/networks — docs/iso-networks.md ("the network is a JS function") ----
+      // ---- /v0/networks — docs/networks.md ("the network is a JS function") ----
       if (parts[1] === "networks") {
         // POST /v0/networks {name, policySource?}
         if (parts.length === 2 && request.method === "POST") {

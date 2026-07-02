@@ -1,7 +1,7 @@
 # iso Volumes — checkpointed, driver-backed, versioned
 
-> Companion to `iso-design.md`. Status: **✅ implemented** (`packages/`,
-> checkpoint semantics). Closes `iso-design.md` open question #0 — the registry
+> Companion to `design.md`. Status: **✅ implemented** (`packages/`,
+> checkpoint semantics). Closes `design.md` open question #0 — the registry
 > machine's data now survives its machine via a `-v regdata:/data` volume
 > (proof transcript in `the README` §Volumes). The live-mount
 > upgrade (bind mounts) remains fork-gap #15.
@@ -46,7 +46,7 @@ with the same CLI. → Captured as a P1 ask in `fork-gaps.md` (#15).
    **Execution rule (mirrors the networks decision):** the built-in `local`
    driver is trusted platform code and runs in the daemon; **user driver
    modules run SANDBOXED in an isolate on the platform** — same
-   user-JS-isolate mechanism as network policies (`iso-networks.md` §2),
+   user-JS-isolate mechanism as network policies (`networks.md` §2),
    invoked at checkpoint boundaries (tarIn/tarOut over RPC). User JS never
    loads into the daemon.
 

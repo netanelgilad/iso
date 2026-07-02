@@ -1,6 +1,6 @@
 {
   "name": "@iso/host",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "The iso host daemon — miniflare + the forked workerd, hosting the control-plane worker and Machine/Registry Durable Objects",
   "type": "module",

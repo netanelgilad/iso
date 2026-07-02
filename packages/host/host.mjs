@@ -45,7 +45,7 @@ for (const [name, dir] of Object.entries(IMAGES)) {
 }
 
 const manifestCache = new Map();
-const HOST_VERSION = "0.1.0";
+const HOST_VERSION = "0.1.1";
 function buildImageManifest(dir) {
   const files = {};
   (function walk(d) {
@@ -82,7 +82,7 @@ function storeDirOf(digest) { return path.join(IMAGE_STORE, digest.replace(":", 
 function manifestOf(digest) { return JSON.parse(readFileSync(path.join(storeDirOf(digest), "iso.json"), "utf8")); }
 function tagsOf(digest) { const idx = loadIndex(); return Object.keys(idx).filter((t) => idx[t] === digest); }
 
-// ---- volume store (docs/iso-volumes.md): ~/.iso/volumes/<name>/{volume.json, live/, snapshots/}
+// ---- volume store (docs/volumes.md): ~/.iso/volumes/<name>/{volume.json, live/, snapshots/}
 // Checkpoint semantics, honestly labeled: copy-in at boot, copy-out at graceful rm / explicit
 // sync. Every checkpoint is content-addressed (digest = sha256 of the artifact bytes — the same
 // snapshot-JSON discipline as images). Retention: pinned snapshots + the last 5 automatics.
@@ -93,7 +93,7 @@ function loadVol(name) { try { return JSON.parse(readFileSync(path.join(volDir(n
 function saveVol(name, v) { mkdirSync(volDir(name), { recursive: true }); writeFileSync(path.join(volDir(name), "volume.json"), JSON.stringify(v, null, 2) + "\n"); }
 function vOk(obj) { return new MfResponse(JSON.stringify(obj), { headers: { "content-type": "application/json" } }); }
 function vErr(code, msg) { return new MfResponse(JSON.stringify({ error: msg }), { status: code, headers: { "content-type": "application/json" } }); }
-// ---- network store (docs/iso-networks.md): ~/.iso/networks/<name>/{network.json, policy.mjs,
+// ---- network store (docs/networks.md): ~/.iso/networks/<name>/{network.json, policy.mjs,
 // state.json}. The policy module TEXT is stored here; the daemon never executes it — it runs
 // SANDBOXED in a per-network policy isolate on the platform (worker/user-module-isolate.mjs's
 // sibling mechanism in control-plane.mjs). `token` authenticates policy-isolate callbacks
@@ -460,7 +460,7 @@ async function hostService(request) {
     if (repo) { const idx = loadIndex(); idx[repo + ":" + (tag || "latest")] = digest; saveIndex(idx); }
     return new MfResponse(JSON.stringify({ ok: true, digest, repoTag: repo ? repo + ":" + (tag || "latest") : null }), { headers: { "content-type": "application/json" } });
   }
-  // ---- volumes (docs/iso-volumes.md): checkpointed, driver-backed, versioned ----------------
+  // ---- volumes (docs/volumes.md): checkpointed, driver-backed, versioned ----------------
   if (url.pathname === "/volume-create" && request.method === "POST") {
     const { name, driverPath } = await request.json();
     if (!/^[a-z0-9][a-z0-9_-]*$/.test(name || "")) return vErr(400, `invalid volume name: ${JSON.stringify(name)}`);
@@ -562,7 +562,7 @@ async function hostService(request) {
     return vOk({ digest, artifact: v.driver === "user" ? artifact : undefined, source: v.driver === "user" ? readFileSync(path.join(volDir(name), "driver.mjs"), "utf8") : undefined });
   }
 
-  // ---- networks (docs/iso-networks.md): name resolution + sandboxed egress policy -----------
+  // ---- networks (docs/networks.md): name resolution + sandboxed egress policy -----------
   if (url.pathname === "/network-create" && request.method === "POST") {
     const { name, policySource } = await request.json();
     if (!/^[a-z0-9][a-z0-9_-]*$/.test(name || "")) return vErr(400, `invalid network name: ${JSON.stringify(name)}`);

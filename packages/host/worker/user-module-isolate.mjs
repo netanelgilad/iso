@@ -1,6 +1,6 @@
 // USER-MODULE ISOLATE — the platform's reusable "user-supplied JS runs SANDBOXED on the
 // platform, never in the daemon" mechanism (shared by volume drivers today and network policies
-// next; see docs/iso-volumes.md §3 and docs/iso-networks.md §2).
+// next; see docs/volumes.md §3 and docs/networks.md §2).
 //
 // The user's module SOURCE is inlined into a dedicated Worker-Loader child with NO ambient
 // authority:

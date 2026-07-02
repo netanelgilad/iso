@@ -1,6 +1,6 @@
 {
   "name": "@iso/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "The iso CLI — a Docker-shaped client for V8-isolate machines",
   "type": "module",

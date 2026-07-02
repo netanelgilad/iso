@@ -323,9 +323,9 @@ iso context create <name> --host <url> [--token …] | use | ls  # point the CLI
 iso commit [-m msg] [--change "CMD …"]… MACHINE [repo[:tag]]  # snapshot a machine → content-addressed image
 iso build [-t repo[:tag]] [-f file] [--keep] CONTEXT   # walk CONTEXT/iso.build.mjs (§1b), commit once
 iso rmi IMAGE...                     # untag; blob deleted with its last tag (legacy images refuse)
-iso volume create|ls|rm|inspect|sync|snapshot|rollback   # ✅ checkpointed persistent trees (iso-volumes.md)
+iso volume create|ls|rm|inspect|sync|snapshot|rollback   # ✅ checkpointed persistent trees (volumes.md)
 iso run … -v <name>:/mount           # ✅ attach a volume (checkpoint semantics, exclusive; -v repeatable)
-iso network create|ls|rm|inspect|logs   # ✅ "the network is a JS function" (iso-networks.md; --policy runs SANDBOXED)
+iso network create|ls|rm|inspect|logs   # ✅ "the network is a JS function" (networks.md; --policy runs SANDBOXED)
 iso run … --network <net> --name <n>     # ✅ join a network; members resolve each other by name; egress transits the policy
 iso tag SRC [host/]repo[:tag]        # local re-tag (docker ref syntax; same digest, new name)
 iso push [--token t] host/repo[:tag] # daemon-side transfer to an iso registry (dedupe via HEAD)
@@ -389,7 +389,7 @@ the layer that makes it one command.
 ## Open questions
 
 0. ~~**Volumes / persistent machine storage**~~ — ✅ RESOLVED by volumes
-   (`iso-volumes.md`, implemented): checkpoint semantics (copy-in at boot,
+   (`volumes.md`, implemented): checkpoint semantics (copy-in at boot,
    copy-out at graceful stop/sync), content-addressed history, exclusive
    attach, sandboxed user drivers. The registry-on-platform now persists via
    `-v regdata:/data`. Live-mount upgrade = fork-gap #15 (bind mounts). Original
@@ -400,7 +400,7 @@ the layer that makes it one command.
    cache of tarballs by digest is enough to start).
 2. **Layering vs. single tarball** — single is simpler and fine until image reuse
    hurts. Defer.
-3. ~~**Multi-machine networking**~~ — ✅ RESOLVED by networks (`iso-networks.md`,
+3. ~~**Multi-machine networking**~~ — ✅ RESOLVED by networks (`networks.md`,
    implemented): members resolve each other BY NAME (Host-header routing through
    the port-proxy path, no DNS), and ALL egress transits a sandboxed per-network
    policy fn. `iso network create|ls|rm|inspect|logs`, `iso run --network`.

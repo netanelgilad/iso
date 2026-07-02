@@ -16,6 +16,16 @@ say()  { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33mwarn:\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
+# ---- uninstall shortcut ----------------------------------------------------------------------
+# `install.sh --uninstall [--purge]` fetches and runs the uninstaller (removes installed code +
+# the PATH symlink; --purge also removes ~/.iso data).
+if [ "${1:-}" = "--uninstall" ]; then
+  shift
+  U="https://raw.githubusercontent.com/$REPO/main/uninstall.sh"
+  if command -v curl >/dev/null 2>&1; then curl -fsSL "$U" | bash -s -- "$@"; exit $?; fi
+  die "curl not found (needed to fetch the uninstaller)."
+fi
+
 # ---- preflight -------------------------------------------------------------------------------
 OS="$(uname -s)"; ARCH="$(uname -m)"
 if [ "$OS" != "Darwin" ] || [ "$ARCH" != "arm64" ]; then

@@ -157,7 +157,7 @@ consider hiding it from readdir.
 
 ### 15. Bind mounts: map a host directory at a VFS path per-DO
 
-Volumes need it (see `docs/iso-volumes.md`). The machine's `/tmp` is already a
+Volumes need it (see `docs/volumes.md`). The machine's `/tmp` is already a
 host directory the fork maps into the VFS — the ask is the same mechanism,
 pointed at a second directory: "map host dir X at VFS path Y for this DO
 (read-write)". With it, iso volumes upgrade from checkpoint semantics

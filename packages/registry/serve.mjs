@@ -1,4 +1,4 @@
-// iso REGISTRY — standalone self-hosted docker-registry analog (docs/iso-design.md §"iso Registry").
+// iso REGISTRY — standalone self-hosted docker-registry analog (docs/design.md §"iso Registry").
 // Content-addressed blob store + tag→manifest mapping; the transfer protocol is deliberately dumb.
 // Plain Node, zero deps.
 //
@@ -29,7 +29,7 @@ import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSyn
 import os from "node:os";
 import path from "node:path";
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 
 // --- flags/env -------------------------------------------------------------
 function arg(flag, envName, dflt) {

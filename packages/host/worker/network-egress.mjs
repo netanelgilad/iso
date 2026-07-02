@@ -1,4 +1,4 @@
-// NETWORK EGRESS GOVERNOR + SANDBOXED POLICY ISOLATES (docs/iso-networks.md)
+// NETWORK EGRESS GOVERNOR + SANDBOXED POLICY ISOLATES (docs/networks.md)
 //
 // "The network is a JS function." Every byte a NETWORKED machine's children (and, by outbound-
 // channel inheritance, their native-spawned grandchildren) send arrives here:

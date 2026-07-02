@@ -208,6 +208,9 @@ ${group("common")}
 Management Commands:
 ${group("mgmt")}
 
+Experimental Commands:
+${group("experimental")}
+
 Global Options:
       --help   Print usage
 
@@ -735,7 +738,7 @@ async function cmdBuild({ flags, positional }) {
   if (repo) console.log("Successfully tagged " + repo + ":" + tag);
 }
 
-// iso volume — checkpointed, driver-backed, versioned volumes (docs/iso-volumes.md).
+// iso volume — checkpointed, driver-backed, versioned volumes (docs/volumes.md).
 async function cmdVolume({ positional }) {
   const ctx = activeContext(loadState());
   const sub = positional[0];
@@ -1142,7 +1145,7 @@ const COMMANDS = {
     flags: { follow: { flags: ["-f", "--follow"], desc: "Follow log output live" } },
   },
   volume: {
-    group: "mgmt", summary: "Manage volumes (checkpointed persistent trees; docs/iso-volumes.md)",
+    group: "mgmt", summary: "Manage volumes (checkpointed persistent trees; docs/volumes.md)",
     usage: "iso volume create <name> [--driver m.mjs] | ls | rm <n> | inspect <n> | sync <n> | snapshot <n> | rollback <n>@<digest>",
     fn: cmdVolume, verbatimAfter: 1, flags: {},
     extra: "CHECKPOINT semantics, honestly labeled: copy-in at machine boot, copy-out on graceful\n" +
@@ -1152,7 +1155,7 @@ const COMMANDS = {
       "modules run SANDBOXED in an isolate (no fs, no daemon access — egress fetch only).",
   },
   network: {
-    group: "mgmt", summary: "Manage networks (the network is a JS function; docs/iso-networks.md)",
+    group: "mgmt", summary: "Manage networks (the network is a JS function; docs/networks.md)",
     usage: "iso network create <name> [--policy m.mjs] | ls | rm <n> | inspect <n> | logs <n> [-f]",
     fn: cmdNetwork, verbatimAfter: 1, flags: {},
     extra: "Members resolve each other BY MACHINE NAME (http://<name>:<port>/... routes into that\n" +
@@ -1257,12 +1260,14 @@ const COMMANDS = {
     verbatimAfter: 1, flags: {}, // subcommand flags (--host/--token) are parsed by the subcommand
   },
   "use-fork": {
-    group: "mgmt", summary: "Repin a scaffolded project's deps to the workerd vite fork (M3)",
-    usage: "iso use-fork MACHINE [PROJECT]", fn: cmdUseFork, extra: MACHINE_REF, flags: {},
+    group: "experimental", summary: "Repin a scaffolded project's deps to the workerd-compatible vite fork",
+    usage: "iso use-fork MACHINE [PROJECT]", fn: cmdUseFork,
+    extra: MACHINE_REF + "\nExperimental. Rewrites a scaffolded project's package.json to the published\nworkerd-compatible @netanelgilad/vite + rolldown forks so it runs under iso.", flags: {},
   },
   dev: {
-    group: "mgmt", summary: "Boot a machine's vite dev server on the host dev proxy (M4)",
-    usage: "iso dev MACHINE [PROJECT]", fn: cmdDev, extra: MACHINE_REF, flags: {},
+    group: "experimental", summary: "Boot a vite dev server for a project inside a machine",
+    usage: "iso dev MACHINE [PROJECT]", fn: cmdDev,
+    extra: MACHINE_REF + "\nExperimental. Warms a vite dev server in the machine and routes it through the\nhost dev proxy (pair with `iso use-fork`).", flags: {},
   },
   version: {
     group: "mgmt", summary: "Show the iso client and host version information",

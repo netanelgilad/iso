@@ -1,6 +1,6 @@
 # iso Networks — "the network is a JS function"
 
-> Companion to `iso-design.md`. Status: **✅ implemented (with notes)**. All four
+> Companion to `design.md`. Status: **✅ implemented (with notes)**. All four
 > scoping decisions below were RESOLVED and are live; the proof ladder ran green
 > (see `the README` §NETWORKS). Notes on what deviates from the
 > sketch and the one fork-gap it surfaced are in "Implementation reality" below.
@@ -77,7 +77,7 @@ iso network connect|disconnect appnet <machine>     (v1.1)
      migration, no trust-boundary rewrite later.
    - This "user-JS-in-a-sandboxed-isolate, invoked via RPC/fetch" mechanism is
      a platform building block shared with volume drivers
-     (`iso-volumes.md`): **user-supplied JS runs on the platform, never in
+     (`volumes.md`): **user-supplied JS runs on the platform, never in
      the daemon.**
 
 ## Implementation notes (the seams exist)

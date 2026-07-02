@@ -60,7 +60,7 @@ function childCfg(probeSrc, outbound) {
     // drain semantics are compatible with awaited-main sessions (the DO closes the stdin pipe
     // before awaiting waitpid, so quiescence is reachable).
     //
-    // NETWORKS (docs/iso-networks.md): a NETWORKED machine's children get this machine's DO as
+    // NETWORKS (docs/networks.md): a NETWORKED machine's children get this machine's DO as
     // their globalOutbound — every fetch arrives at the DO (identity intact) and is forwarded
     // to the control plane's egress governor. Native-spawned grandchildren spawn WITHOUT an
     // explicit globalOutbound, and workerd's worker-loader then INHERITS the calling worker's
@@ -829,7 +829,7 @@ export class Machine {
     await patchProcessReport();
     const url = new URL(request.url);
     try {
-      // NETWORK EGRESS (docs/iso-networks.md): a NETWORKED machine's children have this DO as
+      // NETWORK EGRESS (docs/networks.md): a NETWORKED machine's children have this DO as
       // globalOutbound, so any request that is not a machine op (ops always use http://m/...)
       // is a child's outbound fetch. Stamp the caller's identity and hand it to the control
       // plane's egress governor (member-name resolution, policy isolate, `iso network logs`).

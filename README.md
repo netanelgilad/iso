@@ -35,6 +35,21 @@ SIGKILLed), and links `iso` onto your `PATH`. Re-running upgrades in place.
 Requires **Node.js ≥ 22** and **macOS on Apple Silicon**. If `iso` isn't found afterward, add the
 printed bin dir to your `PATH` (usually `~/.local/bin`).
 
+### Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/netanelgilad/iso/main/uninstall.sh | bash
+# ...or, if you still have the installer: iso ... then  install.sh --uninstall
+```
+
+This stops the host, removes the installed code (`~/.iso/dist`, `~/.iso/run`) and the `iso` symlink,
+and **preserves your data** (`~/.iso/images`, `volumes`, `networks`, `state.json`). To remove
+everything including data, add `--purge`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/netanelgilad/iso/main/uninstall.sh | bash -s -- --purge
+```
+
 ---
 
 ## 60-second quickstart
@@ -45,14 +60,19 @@ iso host started
   Engine API:  http://127.0.0.1:8787   (pid 82711)
 
 $ iso run base npm install left-pad      # a machine runs REAL npm against the REAL registry
-added 1 package
+
+added 1 package in 721ms
+
 node_modules: left-pad
+npm warn deprecated left-pad@1.3.0: use String.prototype.padStart()
 
 $ id=$(iso run -d base iso-tick 1000 500)   # a long-lived machine to poke at
-$ iso exec -i $id sh                     # drop into a shell inside it (Ctrl-D to leave)
-$ echo "hi from $(pwd)" ; ls /usr/bin
+$ iso exec -i $id sh                      # drop into a shell inside it (Ctrl-D to leave)
+/work $ echo "hi from $(pwd)"
 hi from /work
-cat  echo  false  iso-tick  ls  node  npm  npx  pwd  sh  true
+/work $ echo one && echo two              # real shell grammar (pipes, &&, quoting)
+one
+two
 
 $ iso ps                                 # what's running
 MACHINE ID     IMAGE   COMMAND                CREATED   STATUS     NAMES
@@ -137,7 +157,7 @@ copied in at boot, copied out on graceful `iso rm` and explicit `iso volume sync
 $ iso volume create data
 $ id=$(iso run -d --name w -v data:/vol base iso-tick 300 500)
 $ iso exec w sh -c "echo persisted > /vol/note.txt"
-$ iso rm -f w                                   # graceful stop → checkpoints the volume out
+$ iso rm -f w                                   # controlled teardown -> checkpoints the volume out
 volume data: checkpointed sha256:4133a9c8da5e
 
 $ iso run -d --name w2 -v data:/vol base iso-tick 60 500
@@ -246,11 +266,16 @@ Honest constraints for v0.1 — none of this is hidden:
 - **Interactive exec is line-oriented, no PTY.** `iso exec -i` attaches real stdin/stdout but there
   is no pseudo-terminal; full-screen TUIs won't render. `Ctrl-C` detaches (the command keeps
   running).
-- **Volumes are checkpoints, not live block devices.** Data is copied in at boot and out on graceful
-  `iso rm`/`sync`. A machine that is force-killed or evicted loses writes since its last checkpoint.
-- **`sh -c` has no shell grammar.** The bundled `sh` runs commands and pipes basics, but compound
-  lines (`a && b`) and full POSIX shell features are not guaranteed — it's a convenience shell, not
-  bash.
+- **Volumes are checkpoints, not live block devices.** Data is copied in at boot and out on
+  *controlled* teardown — that includes `iso rm` **and `iso rm -f`** (both checkpoint), plus explicit
+  `iso volume sync`. What loses writes since the last checkpoint is an *uncontrolled* loss: the host
+  daemon crashing, being `kill -9`'d, or a machine getting evicted from memory before its checkpoint.
+- **Two shell layers, two different limits.** The bundled interactive `sh` (`iso exec -i … sh`) is
+  [just-bash](https://github.com/vercel-labs/just-bash) and *does* handle real shell grammar —
+  pipes, `&&`/`||`, quoting, globs. The separate limit is npm's own **lifecycle/run scripts**: the
+  fork tokenizes `sh -c '<line>'` into argv with no shell pass, so a package's `"scripts"` that rely
+  on compound shell lines or shell builtins won't run as a POSIX shell would. iso ships coreutils
+  bins (`echo`, `cat`, …) so common scripts still work.
 - **Known runtime edges** are tracked precisely in [docs/fork-gaps.md](docs/fork-gaps.md) (a
   provenance ledger of what iso works around and what has landed upstream in the fork).
 
