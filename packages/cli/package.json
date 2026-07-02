@@ -1,0 +1,16 @@
+{
+  "name": "@iso/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The iso CLI — a Docker-shaped client for V8-isolate machines",
+  "type": "module",
+  "bin": {
+    "iso": "./iso.mjs"
+  },
+  "files": [
+    "iso.mjs"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "iso-sdk",
+  "version": "0.1.0",
+  "description": "Build-graph SDK for iso build files (iso.build.mjs) — from() returns a step graph the host executes with docker-style per-step caching",
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "files": [
+    "index.mjs"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
+}

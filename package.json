@@ -1,0 +1,21 @@
+{
+  "name": "iso-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "iso — Docker's DX for V8-isolate machines. Install layout: this tree lives under ~/.iso/dist/<version> with its dependencies installed here so upward module resolution serves the CLI, host, and build files alike.",
+  "bin": {
+    "iso": "./packages/cli/iso.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "miniflare": "4.20260616.0",
+    "ws": "^8.21.0",
+    "npm": "11.17.0",
+    "esbuild-wasm": "^0.27.7",
+    "just-bash": "^3.0.1",
+    "iso-sdk": "file:packages/sdk"
+  }
+}

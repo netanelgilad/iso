@@ -1,0 +1,16 @@
+{
+  "name": "@iso/registry",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The iso image registry — a standalone content-addressed registry that also runs AS an iso image",
+  "type": "module",
+  "main": "./serve.mjs",
+  "files": [
+    "serve.mjs",
+    "test.mjs",
+    "iso.build.mjs"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
+}

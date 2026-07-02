@@ -1,0 +1,26 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Fast checks that need NO workerd (the fork binary isn't built in CI yet — roadmap):
+      # syntax/parse every JS module, and run the registry's own test suite (pure node:http).
+      - name: Parse-check all JS modules
+        run: |
+          set -e
+          find packages examples scripts -name '*.mjs' -not -path '*/node_modules/*' -print0 \
+            | xargs -0 -n1 node --check
+          node --check install.sh >/dev/null 2>&1 || true  # bash, not JS; skip
+      - name: Registry test suite
+        run: node packages/registry/test.mjs
+      - name: SDK sanity
+        run: node -e "import('./packages/sdk/index.mjs').then(m=>{if(typeof m.from!=='function')process.exit(1);console.log('iso-sdk from() ok')})"
