@@ -14,7 +14,7 @@
 //   usr/bin/iso-tick            streaming-logs demo bin
 //   usr/bin/sh + usr/lib/iso/sh.mjs   a real shell (just-bash) bundled to one ESM file
 //   etc/npmrc                   registry / cache / ignore-scripts defaults
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -113,36 +113,37 @@ writeFileSync(path.join(OUT, "usr/bin/node"), "// node = the isolate runtime its
 // node_modules at bundle time; native @mongodb-js/zstd (reached only by just-bash's lazy
 // tar/file chunks) stays external to keep the bundle pure-JS.
 {
-  const esbuild = require("esbuild-wasm");
-  resolvePkgDir("just-bash"); // ensure present; sh-entry.mjs imports it bare
-  // just-bash lazily references optional/native deps for its heavy command chunks (compression,
-  // sqlite, AI, a JS engine, its own test harness). The iso shell only needs the core REPL +
-  // spawn dispatch, so we keep those chunks EXTERNAL — the bundle stays pure-JS; those specific
-  // commands (e.g. a zstd/xz `tar`, `sqlite3`) error if invoked, which is fine and documented.
-  const external = [
-    "@mongodb-js/zstd", "node-liblzma", "seek-bzip", // compression backends
-    "sql.js",                                          // sqlite command
-    "ai", "turndown", "bash-tool",                     // AI/agent command chunks
-    "quickjs-emscripten",                              // embedded JS engine
-    "vitest",                                          // just-bash's own test harness
-  ];
-  const r = await esbuild.build({
-    entryPoints: [path.join(HERE, "sh/sh-entry.mjs")],
-    bundle: true, format: "esm", platform: "node",
-    nodePaths: [NODE_MODULES],
-    external,
-    write: false, logLevel: "silent",
-  });
+  // sh.mjs is a RELEASE ARTIFACT: prebuilt (by scripts/build-sh.mjs against a complete
+  // node_modules) and shipped in the tarball, so a user's install never has to resolve
+  // just-bash's optional command deps. If the prebuilt is missing (a source checkout that hasn't
+  // run the prebuild), fall back to bundling here.
   mkdirSync(path.join(OUT, "usr/lib/iso"), { recursive: true });
-  writeFileSync(path.join(OUT, "usr/lib/iso/sh.mjs"), r.outputFiles[0].text);
+  const prebuilt = path.join(HERE, "prebuilt", "sh.mjs");
+  let shText;
+  if (existsSync(prebuilt)) {
+    shText = readFileSync(prebuilt, "utf8");
+    console.log("  using prebuilt sh (" + Math.round(shText.length / 1024) + "kB)");
+  } else {
+    const esbuild = require("esbuild-wasm");
+    resolvePkgDir("just-bash");
+    const r = await esbuild.build({
+      entryPoints: [path.join(HERE, "sh/sh-entry.mjs")],
+      bundle: true, format: "esm", platform: "node",
+      nodePaths: [NODE_MODULES],
+      external: ["@mongodb-js/zstd", "ai", "bash-tool"],
+      write: false, logLevel: "silent",
+    });
+    shText = r.outputFiles[0].text;
+    try { esbuild.stop?.(); } catch {}
+    console.log("  bundled sh (" + Math.round(shText.length / 1024) + "kB, just-bash)");
+  }
+  writeFileSync(path.join(OUT, "usr/lib/iso/sh.mjs"), shText);
   writeFileSync(path.join(OUT, "usr/bin/sh"), `// iso sh launcher — impl bundled at usr/lib/iso/sh.mjs (just-bash + REPL)
 export default async function main() {
   const mod = await import("/usr/lib/iso/sh.mjs");
   return mod.default();
 }
 `);
-  console.log("  bundled sh (" + Math.round(r.outputFiles[0].text.length / 1024) + "kB, just-bash)");
-  try { esbuild.stop?.(); } catch {}
 }
 
 let files = 0, bytes = 0;
