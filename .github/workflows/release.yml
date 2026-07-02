@@ -16,7 +16,11 @@ jobs:
           node-version: 22
       - name: Build JS dist tarball
         run: node scripts/package.mjs
-      - name: Create GitHub release with the JS dist + checksums
+      # Create the release (if it doesn't exist) with the JS dist tarball only. The workerd
+      # runtime binary AND the authoritative combined checksums.txt are uploaded separately from
+      # a machine that builds the fork (see scripts/upload-binary.sh) — CI can't build the fork
+      # yet (roadmap), so CI must NOT clobber checksums.txt.
+      - name: Create/att­ach JS dist to the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -24,7 +28,7 @@ jobs:
             --title "iso ${GITHUB_REF_NAME}" \
             --notes "iso ${GITHUB_REF_NAME}. Install: \`curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/install.sh | bash\`
 
-            NOTE: the macOS/arm64 workerd runtime binary (\`workerd-vfs-darwin-arm64.bin\`) is uploaded
-            separately from a machine that builds the fork (CI-built fork binaries are a roadmap item)." \
-            dist-release/iso-*.tar.gz dist-release/checksums.txt || \
-          gh release upload "${GITHUB_REF_NAME}" dist-release/iso-*.tar.gz dist-release/checksums.txt --clobber
+            The macOS/arm64 workerd runtime binary (\`workerd-vfs-darwin-arm64.bin\`) and combined
+            \`checksums.txt\` are uploaded separately (CI can't build the fork yet — roadmap)." \
+            "dist-release/iso-${GITHUB_REF_NAME}.tar.gz" \
+          || gh release upload "${GITHUB_REF_NAME}" "dist-release/iso-${GITHUB_REF_NAME}.tar.gz" --clobber
