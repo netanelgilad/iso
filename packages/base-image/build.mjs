@@ -115,11 +115,22 @@ writeFileSync(path.join(OUT, "usr/bin/node"), "// node = the isolate runtime its
 {
   const esbuild = require("esbuild-wasm");
   resolvePkgDir("just-bash"); // ensure present; sh-entry.mjs imports it bare
+  // just-bash lazily references optional/native deps for its heavy command chunks (compression,
+  // sqlite, AI, a JS engine, its own test harness). The iso shell only needs the core REPL +
+  // spawn dispatch, so we keep those chunks EXTERNAL — the bundle stays pure-JS; those specific
+  // commands (e.g. a zstd/xz `tar`, `sqlite3`) error if invoked, which is fine and documented.
+  const external = [
+    "@mongodb-js/zstd", "node-liblzma", "seek-bzip", // compression backends
+    "sql.js",                                          // sqlite command
+    "ai", "turndown", "bash-tool",                     // AI/agent command chunks
+    "quickjs-emscripten",                              // embedded JS engine
+    "vitest",                                          // just-bash's own test harness
+  ];
   const r = await esbuild.build({
     entryPoints: [path.join(HERE, "sh/sh-entry.mjs")],
     bundle: true, format: "esm", platform: "node",
     nodePaths: [NODE_MODULES],
-    external: ["@mongodb-js/zstd"],
+    external,
     write: false, logLevel: "silent",
   });
   mkdirSync(path.join(OUT, "usr/lib/iso"), { recursive: true });
