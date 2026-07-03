@@ -144,6 +144,14 @@ most widely known API surface in the world, shared and resident.
 Everything rests on a workerd fork
 ([netanelgilad/workerd @ `feat/vfs-module-loading`](https://github.com/netanelgilad/workerd/tree/feat/vfs-module-loading))
 that adds: a writable VFS rooted at `/`, VFS-backed module loading, native `child_process.spawn`
-(sub-isolates), `drainProcess` run-to-quiescence, and streaming spawn stdio. The gaps iso still
-works around (and the ones already landed upstream) are logged precisely in
+(sub-isolates), `drainProcess` run-to-quiescence, and streaming spawn stdio.
+
+**Exact binary provenance.** The shipped runtime `workerd-vfs-darwin-arm64.bin`
+(`sha256 e01ebcc46de052bb6bd4f707bd5ea4db33d47ee146ffc69c873cd1e2b0ac5d9d`) was built from commit
+[`366e8a8`](https://github.com/netanelgilad/workerd/commit/366e8a86cdcf2841fef5fc6cb5416d0722405f1f)
+of that branch. That commit also contains three primitives iso has **not yet adopted** (native
+pid/ppid + lifecycle stream, real-`sh` shell delegation, nested-spawn VFS-write
+drain-independence) — see [fork-gaps.md](fork-gaps.md) "LANDED IN FORK @366e8a8 … NOT YET ADOPTED".
+
+The gaps iso still works around (and the ones already landed upstream) are logged precisely in
 [fork-gaps.md](fork-gaps.md).

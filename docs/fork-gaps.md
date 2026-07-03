@@ -12,6 +12,32 @@ primitives.
 Longer prose + transcripts: `the README` §"Fork gaps hit" and the
 capstone/adoption sections.
 
+## LANDED IN FORK @366e8a8 — SHIPPED in the current binary, NOT YET ADOPTED by iso
+
+The shipped runtime binary (`sha256 e01ebcc46de052bb6bd4f707bd5ea4db33d47ee146ffc69c873cd1e2b0ac5d9d`,
+built from `netanelgilad/workerd@366e8a8`) already contains these three fixes. iso still runs its
+old workarounds against them — adopting each is tracked follow-up work (GitHub issues, label
+`runtime-adoption`).
+
+### 2. Native spawn observability — LANDED @366e8a8 (`feat: native-spawn pid/ppid + lifecycle event stream`), NOT YET ADOPTED
+The fork now assigns pid/ppid to native-spawned children and emits a lifecycle event stream.
+**Adoption unlocks:** a full `pstree` in `iso top` (real parentage instead of ppid `-`) plus
+exited-native history (today exited natives vanish). iso's `/top` still reads only the DO process
+table + live `.spawn-*` scratch dirs.
+
+### 8. `sh -c '<line>'` tokenization — LANDED @366e8a8 (`fix: delegate shell mode to a real PATH-resolved sh`), NOT YET ADOPTED
+The fork now delegates shell mode to a real PATH-resolved `sh` instead of tokenizing argv itself.
+**Adoption unlocks:** possibly dropping the coreutils bins (`echo`/`cat`/`ls`/…) from the base
+overlay and the "no shell grammar in npm lifecycle scripts" caveat — npm `"scripts"` with compound
+lines would run through the real `sh`. Needs a re-probe first: confirm the delegation resolves
+iso's bundled `usr/bin/sh` (just-bash) and lifecycle scripts work before deleting the overlay.
+
+### 3. Nested-spawn VFS-write drain-independence — LANDED @366e8a8 (`test: lock VFS-write drain-independence for nested spawn`), NOT YET ADOPTED
+A nested `child_process.spawn` from a NON-`drainProcess` child can now write the VFS (cacache
+`mkdir` no longer EPERMs). **Adoption unlocks:** dropping iso's "every generic child is a
+drainProcess child" workaround — the drain/non-drain asymmetry forced onto every exec session
+goes away.
+
 ## LANDED (verified on 83df466 / c30f5022 — iso mitigations deleted)
 
 ### ~~1. Spawn stdio streams (stdin + incremental output)~~ — landed in 83df466
@@ -98,12 +124,13 @@ record of what the governor decided. Suggested: count an in-flight
 `globalOutbound` subrequest as pending drain work (mirror of the spawn-waitpid
 bracket #16/#7 already do for RPC).
 
-### 8. `sh -c '<line>'` is tokenized unconditionally, no builtins — still open
+### 8. `sh -c '<line>'` is tokenized unconditionally, no builtins — FIXED IN FORK @366e8a8 (see top section), NOT YET ADOPTED
 
-Even with a real `usr/bin/sh` on PATH, `sh -c` lines are tokenized (no shell
-pass) and there are no builtins — `echo`/`true`/… ship as coreutils bins in the
-iso overlay (still load-bearing on c30f5022). Compound lines (`a && b`, pipes)
-unsupported at that layer. Suggested: if PATH resolves a real `sh`, delegate.
+Historically: even with a real `usr/bin/sh` on PATH, `sh -c` lines were tokenized (no shell pass)
+and there were no builtins — `echo`/`true`/… ship as coreutils bins in the iso overlay. Compound
+lines (`a && b`, pipes) unsupported at that layer. **The fork now delegates shell mode to a real
+PATH-resolved `sh` (@366e8a8, shipped)** — iso hasn't adopted it yet (see the "LANDED IN FORK …
+NOT YET ADOPTED" section above and issue `runtime-adoption`).
 
 ### 12. Piped node:http responses truncate at the first 64KB chunk
 
@@ -126,19 +153,20 @@ IPv6 listener on the same port silently hijacks traffic meant for an
 IPv4-bound listener. iso's daemon normalizes registry hosts to `127.0.0.1`.
 Noted for anyone binding published ports.
 
-### 2. Native spawn observability
+### 2. Native spawn observability — FIXED IN FORK @366e8a8 (see top section), NOT YET ADOPTED
 
-No parentage, no lifecycle events; the `.spawn-*` scratch dir is removed at exit
-and `status.json` appears only on explicit `process.exit` (clean quiescence
-leaves nothing). Consequence: `iso top` shows native processes only while
-running, ppid `-`, and exited natives vanish. Wanted eventually: pid/ppid + an
-observable process table or event stream (iso would render a full `pstree`).
+Historically: no parentage, no lifecycle events; the `.spawn-*` scratch dir is removed at exit and
+`status.json` appears only on explicit `process.exit`. Consequence: `iso top` shows native
+processes only while running, ppid `-`, exited natives vanish. **The fork now provides pid/ppid +
+a lifecycle event stream (@366e8a8, shipped)** — iso hasn't adopted it (issue `runtime-adoption`;
+adoption → full `pstree` + exited-native history).
 
-### 3. Nested spawn from a non-`drainProcess` child hits EPERM on VFS writes
+### 3. Nested spawn from a non-`drainProcess` child hits EPERM on VFS writes — FIXED IN FORK @366e8a8 (see top section), NOT YET ADOPTED
 
-Registry fetch → cacache `mkdir` fails when the spawner is a non-drain child.
-iso's workaround: every generic child is a drain child. The drain/non-drain
-asymmetry is a sharp edge.
+Historically: registry fetch → cacache `mkdir` failed when the spawner was a non-drain child.
+iso's workaround: every generic child is a drain child. **The fork now locks VFS-write
+drain-independence for nested spawn (@366e8a8, shipped)** — iso hasn't dropped the workaround yet
+(issue `runtime-adoption`).
 
 ### 4. `require(ESM-with-default)` returns the default export itself
 

@@ -21,7 +21,7 @@ There is **no real `spawn`** and **no native process** (see
 - An **image may only contain JS and wasm.** Anything that would shell out to a
   native binary (`node-gyp`, `make`, `python`, `prebuild-install`, an
   `esbuild`/`rolldown` native `.node`) must be replaced by a wasm build at image
-  *build* time — exactly what the Vite harness already does (`docs/rolldown-fork-findings.md`).
+  *build* time — exactly what the workerd-compatible Vite/rolldown forks do.
 - No fork/IPC, no signals, no TTY. "Processes" are cooperative sub-isolates with
   faked `process.argv`/`cwd`/`env` and a trapped `process.exit`.
 - This is **not** "Docker for arbitrary Linux images." It is "Docker for pure-JS/wasm
@@ -382,8 +382,8 @@ like Docker rather than a batch runner.
 `https://<id>.<zone>/` and get **live HMR** — a full Vite dev machine that
 cold-starts in milliseconds, is globally addressable, and runs thousands-per-host
 because it's an isolate, not a VM. Docker cannot do that at this density or speed.
-Every piece of this path is already proven in isolation (`README.md`,
-`docs/rolldown-fork-findings.md`, the `base-image` + `do-shell` spikes); `iso` is
+Every piece of this path is already proven in isolation (the workerd fork's
+native-spawn/VFS spikes and the vite/rolldown fork work); `iso` is
 the layer that makes it one command.
 
 ## Open questions

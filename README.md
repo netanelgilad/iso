@@ -306,13 +306,14 @@ primitives isolates need to behave like machines: a writable VFS rooted at `/`, 
 loading, `child_process.spawn` backed by sub-isolates, and `drainProcess` (run-to-quiescence)
 semantics.
 
-- Fork branch: **[netanelgilad/workerd @ `feat/vfs-module-loading`](https://github.com/netanelgilad/workerd/tree/feat/vfs-module-loading)**
-  (this release built from commit `366e8a8`).
-- The prebuilt macOS/arm64 runtime binary ships as a release asset (`workerd-vfs-darwin-arm64.bin`),
-  ad-hoc code-signed by the installer.
-- **Building the fork yourself:** clone that branch and build with Bazel per workerd's instructions,
-  then point iso at it with `MINIFLARE_WORKERD_PATH=/path/to/workerd`. CI-built fork binaries (and
-  additional platforms) are a roadmap item.
+- Fork branch: **[netanelgilad/workerd @ `feat/vfs-module-loading`](https://github.com/netanelgilad/workerd/tree/feat/vfs-module-loading)**.
+- **Exact provenance:** the shipped runtime binary
+  `workerd-vfs-darwin-arm64.bin` (`sha256 e01ebcc46de052bb6bd4f707bd5ea4db33d47ee146ffc69c873cd1e2b0ac5d9d`)
+  was built from commit [`366e8a8`](https://github.com/netanelgilad/workerd/commit/366e8a86cdcf2841fef5fc6cb5416d0722405f1f).
+  It ships as a release asset, ad-hoc code-signed by the installer.
+- **Building the fork yourself:** clone that branch at `366e8a8`, build with Bazel per workerd's
+  instructions, then point iso at it with `MINIFLARE_WORKERD_PATH=/path/to/workerd`. CI-built fork
+  binaries (and additional platforms) are a roadmap item.
 
 ---
 
@@ -329,6 +330,10 @@ node packages/cli/iso.mjs run base npm install left-pad
 The repo layout is the install layout: `packages/{cli,host,registry,sdk,base-image}`, `examples/`,
 `docs/`. `iso` resolves the daemon relative to its own location, so a checkout works exactly like an
 install.
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for dev setup + tests, [`CLAUDE.md`](CLAUDE.md) for the
+full operating manual (fork pairing, release process, warts), and the
+[issue backlog](https://github.com/netanelgilad/iso/issues) for the work queue.
 
 ## License
 
