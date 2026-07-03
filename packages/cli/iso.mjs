@@ -246,10 +246,28 @@ async function cmdRun({ flags, positional }) {
       return { host: hostPort, machine: machinePort };
     });
   }
+  // interactive attach (`iso run -it`) — reuse the exec-attach machinery (bidirectional WS,
+  // DO-owned socket, real process.stdin). `--rm` (below) composes with it.
+  if (flags.interactive) {
+    if (flags.tty) process.stderr.write("iso: the platform has no PTY; -t ignored, session is line-oriented\n");
+    if (flags.detach) die("Error: -i and -d are mutually exclusive (interactive attach needs a foreground session)");
+    body.attach = true;
+    body.detach = false;
+    const res = await api(ctx, "POST", "/v0/machines", body);
+    if (res.note) process.stderr.write("iso: " + res.note + "\n");
+    if (!res.execId) die("Error: host did not return an execId for the attach");
+    const code = await attachSession(ctx, res.id, res.execId, { noExit: true });
+    if (flags.rm) await apiRaw(ctx, "DELETE", "/v0/machines/" + encodeURIComponent(res.id)); // auto-remove
+    process.exit(code);
+  }
+  if (flags.tty) process.stderr.write("iso: the platform has no PTY; -t ignored (non-interactive run)\n");
+  if (flags.rm && flags.detach) die("Error: --rm cannot be combined with -d (no daemon-side watcher; the machine would never be auto-removed)");
   const res = await api(ctx, "POST", "/v0/machines", body);
   if (flags.detach) { console.log(res.id); return; } // docker parity: -d prints the full id
   printRun(res.run);
-  process.exitCode = res.run?.code ?? 0; // exit with the machine command's exit code
+  const code = res.run?.code ?? 0;
+  if (flags.rm) await apiRaw(ctx, "DELETE", "/v0/machines/" + encodeURIComponent(res.id)); // auto-remove (checkpoints volumes)
+  process.exitCode = code; // exit with the machine command's exit code
 }
 
 async function cmdExec({ flags, positional }) {
@@ -264,7 +282,7 @@ async function cmdExec({ flags, positional }) {
     body.detach = false;
     const res = await api(ctx, "POST", "/v0/machines/" + encodeURIComponent(ref) + "/exec", body);
     if (!res.execId) die("Error: host did not return an execId for the attach");
-    await attachSession(ctx, ref, res.execId);
+    await attachSession(ctx, ref, res.execId); // exits with the remote code
     return;
   }
   const res = await api(ctx, "POST", "/v0/machines/" + encodeURIComponent(ref) + "/exec", body);
@@ -278,7 +296,7 @@ async function cmdExec({ flags, positional }) {
 // stdout/stderr frames printed live (partial frames = prompts, written without a newline); exits
 // with the remote command's exit code. Ctrl-C DETACHES (socket closes, the remote command keeps
 // running — docker's -i-without-t behavior); exit code 130.
-async function attachSession(ctx, ref, execId) {
+async function attachSession(ctx, ref, execId, opts = {}) {
   const { WebSocket } = await import("ws");
   const wsUrl = ctx.host.replace(/^http/, "ws").replace(/\/$/, "")
     + "/v0/machines/" + encodeURIComponent(ref) + "/exec/" + encodeURIComponent(execId) + "/attach";
@@ -308,7 +326,10 @@ async function attachSession(ctx, ref, execId) {
       resolve(130);
     });
   });
-  process.exit(exitCode); // stdin listeners keep the loop alive — exit explicitly with the remote code
+  // stdin listeners keep the loop alive — the caller exits explicitly with the remote code
+  // (unless opts.noExit, so a `--rm` caller can clean up the machine first).
+  if (opts.noExit) return exitCode;
+  process.exit(exitCode);
 }
 
 async function cmdPs({ flags }) {
@@ -1181,10 +1202,16 @@ const COMMANDS = {
     group: "common", summary: "Create and run a command in a new machine",
     usage: "iso run [OPTIONS] IMAGE [COMMAND] [ARG...]", verbatimAfter: 2, fn: cmdRun,
     extra: "Flags may appear anywhere before COMMAND (before or after IMAGE). Everything from\n" +
-      "COMMAND on is passed to the machine verbatim. With no COMMAND, the image manifest's\n" +
-      "ENTRYPOINT/CMD run (-e and -w override manifest ENV/WORKDIR).",
+      "COMMAND on is passed to the machine verbatim.\n" +
+      "Command precedence with no COMMAND: image ENTRYPOINT/CMD if set; else with -i, a shell\n" +
+      "(sh); else boot-only. `iso run -it base` drops you into a shell. (-e/-w override manifest\n" +
+      "ENV/WORKDIR.) With -i, local stdin attaches to the command (line-oriented, no PTY; EOF\n" +
+      "propagates; Ctrl-C detaches). --rm auto-removes the machine when the command exits.",
     flags: {
       detach: { flags: ["-d", "--detach"], desc: "Run machine in background and print machine ID" },
+      interactive: { flags: ["-i", "--interactive"], desc: "Attach local stdin to the command (bidirectional session)" },
+      tty: { flags: ["-t", "--tty"], desc: "Ignored with a warning — the platform has no PTY" },
+      rm: { flags: ["--rm"], desc: "Automatically remove the machine when the command exits" },
       env: { flags: ["-e", "--env"], value: true, repeat: true, meta: "list", desc: "Set environment variables (KEY=VAL, repeatable)" },
       name: { flags: ["--name"], value: true, meta: "string", desc: "Assign a name to the machine (auto-generated if absent)" },
       publish: { flags: ["-p", "--publish"], value: true, repeat: true, meta: "list", desc: "Publish a machine port: hostPort[:machinePort] (bare hostPort uses the manifest EXPOSE)" },

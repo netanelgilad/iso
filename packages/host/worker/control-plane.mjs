@@ -479,9 +479,15 @@ export default {
             return Response.json({ error: `image '${image}' requires iso host >= ${minHost}; this host is ${hostVer} — run 'iso update'` }, { status: 400 });
           }
         }
+        // Command precedence (docker-faithful): user COMMAND, else image ENTRYPOINT+CMD; else if
+        // interactive (`iso run -it`) default to a shell (`sh`) — a bare rootfs like `base` is
+        // meant to be poked at, so `iso run -it base` → shell, like `docker run -it <img>` with no
+        // default command; else boot-only (unchanged).
         const userCmd = [body.cmd, ...(body.args || [])].filter((x) => x !== undefined && x !== null && x !== "");
         const entry = Array.isArray(manifest.entrypoint) ? manifest.entrypoint : [];
-        const argv = [...entry, ...(userCmd.length ? userCmd : (Array.isArray(manifest.cmd) ? manifest.cmd : []))];
+        let argv = [...entry, ...(userCmd.length ? userCmd : (Array.isArray(manifest.cmd) ? manifest.cmd : []))];
+        let defaultedShell = false;
+        if (!argv.length && body.attach) { argv = ["sh"]; defaultedShell = true; }
         const mergedEnv = { ...(manifest.env || {}), ...(body.env || {}) };
         const cwd = body.cwd || manifest.workdir || "/work";
 
@@ -604,6 +610,9 @@ export default {
           const runRes = await stub.fetch(new Request("http://m/run", {
             method: "POST", headers: { "content-type": "application/json" },
             body: JSON.stringify({ machineId: id, image, cmd: argv[0], args: argv.slice(1), env: mergedEnv, cwd, detach: !!body.detach,
+              // `iso run -it` — attach to the command's stdio (the MAIN command, NOT exec:true, so
+              // it still owns the machine's ps row/status). Reuses the exec-attach WS machinery.
+              attach: !!body.attach,
               // a networked machine whose IMAGE declares a server (EXPOSE) is SERVING at
               // quiescence even with no published ports — members reach it by name. (A plain
               // networked command with no EXPOSE exits normally; name-resolution targets
@@ -611,6 +620,8 @@ export default {
               serving: ports.length > 0 || (!!netName && Array.isArray(manifest.ports) && manifest.ports.length > 0),
               network: netName ? { name: netName, member: name } : undefined }),
           })).then((r) => r.json());
+          // interactive run: hand back an execId so the CLI opens the attach WS (same endpoint as exec).
+          if (body.attach) return Response.json({ id, name, url: rec.url, execId: runRes.streamId, attached: true, ...(defaultedShell ? { note: "no default command; starting sh" } : {}) });
           return Response.json({ id, name, url: rec.url, streamId: runRes.streamId, detached: !!runRes.detached, run: body.detach ? undefined : runRes });
         } catch (e) {
           // machine failed to boot/start: release claims and drop the record — a failed `iso run`

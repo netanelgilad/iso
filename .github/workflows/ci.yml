@@ -24,5 +24,7 @@ jobs:
         run: node packages/registry/test.mjs
       - name: node launcher (-e/-p/--version/unsupported — silent-no-op regression guard)
         run: node scripts/test-node-launcher.mjs
+      - name: run flag parsing (-i/-t/-it/--rm; unknown flags stay loud)
+        run: node scripts/test-run-flags.mjs
       - name: SDK sanity
         run: node -e "import('./packages/sdk/index.mjs').then(m=>{if(typeof m.from!=='function')process.exit(1);console.log('iso-sdk from() ok')})"

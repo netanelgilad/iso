@@ -9,8 +9,8 @@ JavaScript + WebAssembly**, and the network layer is a **JavaScript function you
 of iptables you configure.
 
 ```console
+$ iso run -it base sh                    # drop into a shell in a fresh machine
 $ iso run base npm install left-pad     # real npm, real registry fetch, inside an isolate
-$ iso exec -i <id> sh                    # a real shell, in the machine
 $ iso build -t myapp ./myproj            # build an image from a JS build graph
 $ iso run -d --network appnet --name db registry   # machines reach each other by name
 ```
@@ -85,23 +85,21 @@ added 1 package in 721ms
 node_modules: left-pad
 npm warn deprecated left-pad@1.3.0: use String.prototype.padStart()
 
-$ id=$(iso run -d base iso-tick 1000 500)   # a long-lived machine to poke at
-$ iso exec -i $id sh                      # drop into a shell inside it (Ctrl-D to leave)
+$ iso run --rm -it base sh                # drop into a shell in a fresh machine (--rm: auto-clean on exit)
+iso: no default command; starting sh
 /work $ echo "hi from $(pwd)"
 hi from /work
 /work $ echo one && echo two              # real shell grammar (pipes, &&, quoting)
 one
 two
-
-$ iso ps                                 # what's running
-MACHINE ID     IMAGE   COMMAND                CREATED   STATUS     NAMES
-1889020bcdfe   base    "iso-tick 1000 500"    …         Up …       distracted_hopper
-
-$ iso rm -f $id
+/work $ exit
+$ iso ps -a                              # --rm left nothing behind
+MACHINE ID   IMAGE   COMMAND   CREATED   STATUS   PORTS   NAMES   NETWORK
 ```
 
 That's it: an isolate booted, ran the real npm CLI (fetching from `registry.npmjs.org`), gave you
-an interactive shell, and torn down — no container image pull, no VM.
+an interactive shell with `iso run -it base sh`, and — with `--rm` — cleaned itself up. No
+container image pull, no VM.
 
 ---
 
@@ -231,14 +229,15 @@ policy proving the sandbox boundary). See [docs/networks.md](docs/networks.md).
 
 | | |
 |---|---|
-| **Machines** | `run`, `exec`, `ps`, `logs`, `inspect`, `top`, `cp`, `rm`, `commit` |
+| **Machines** | `run` (incl. `-it`, `--rm`), `exec`, `ps`, `logs`, `inspect`, `top`, `cp`, `rm`, `commit` |
 | **Images** | `build`, `images`, `tag`, `push`, `pull`, `rmi` |
 | **Volumes** | `volume create\|ls\|rm\|inspect\|sync\|snapshot\|rollback` |
 | **Networks** | `network create\|ls\|rm\|inspect\|logs` |
-| **Daemon / config** | `host start\|stop\|status`, `context`, `version` |
+| **Daemon / config** | `host start\|stop\|status`, `context`, `version`, `update` |
 
-Flags may appear anywhere; machines resolve by id, id-prefix, or name. Run `iso --help` or
-`iso <command> --help` for the full surface.
+Flags may appear anywhere; machines resolve by id, id-prefix, or name. `iso run -it <image>` gives
+you a shell (or the image's default command); add `--rm` to auto-clean throwaway sessions. Run
+`iso --help` or `iso <command> --help` for the full surface.
 
 ---
 
@@ -282,9 +281,9 @@ Honest constraints for v0.1 — none of this is hidden:
 - **Pure JS/Wasm world.** A machine's world is JavaScript + WebAssembly running on workerd — not a
   Linux userland. There is no libc, no native binaries, no `/bin/bash`. `npm` works because npm is
   JS; native addons and posix-only tools do not.
-- **Interactive exec is line-oriented, no PTY.** `iso exec -i` attaches real stdin/stdout but there
-  is no pseudo-terminal; full-screen TUIs won't render. `Ctrl-C` detaches (the command keeps
-  running).
+- **Interactive sessions are line-oriented, no PTY.** `iso run -it` and `iso exec -i` attach real
+  stdin/stdout, but there is no pseudo-terminal (`-t` prints a warning and is otherwise ignored);
+  full-screen TUIs won't render. `Ctrl-C` detaches (the command keeps running).
 - **Volumes are checkpoints, not live block devices.** Data is copied in at boot and out on
   *controlled* teardown — that includes `iso rm` **and `iso rm -f`** (both checkpoint), plus explicit
   `iso volume sync`. What loses writes since the last checkpoint is an *uncontrolled* loss: the host

@@ -29,7 +29,7 @@ import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSyn
 import os from "node:os";
 import path from "node:path";
 
-const VERSION = "0.1.3";
+const VERSION = "0.1.4";
 
 // --- flags/env -------------------------------------------------------------
 function arg(flag, envName, dflt) {

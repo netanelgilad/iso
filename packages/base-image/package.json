@@ -1,6 +1,6 @@
 {
   "name": "@iso/base-image",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "Builds the iso 'base' image rootfs (vanilla npm + a thin environmental overlay) into ~/.iso/base/.staging",
   "type": "module",
