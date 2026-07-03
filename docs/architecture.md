@@ -82,6 +82,61 @@ Digest discipline: an image digest is the `sha256` of its snapshot artifact byte
 blob *is* that artifact and verification is a plain hash — no re-serialization. Volumes reuse the
 same content-addressing for checkpoints.
 
+## What's actually in an image (and what isn't)
+
+Every containerization technology is defined by where it draws the
+"provided by the host vs. shipped in the image" line:
+
+| | Interface (host provides) | Ships in the image |
+|---|---|---|
+| VM | virtual hardware | kernel + libc + userland + runtime + app |
+| Docker | the kernel (syscall ABI) | libc + userland + the `node` binary + app |
+| **iso** | **the JS runtime — Node's API surface + web APIs** | pure-JS/wasm userland + app |
+
+So: **`node` is to an iso machine what the Linux kernel is to a Docker
+container.** It isn't installed anywhere — it's the substrate every machine
+runs on. A Docker image doesn't contain a kernel; an iso image doesn't contain
+node. `npm`, by contrast, is genuinely installed — it's userland, a JS program
+at `/usr/lib/node_modules/npm`, byte-for-byte as published.
+
+Read the base image as a *userland-as-JS* distro:
+
+- `sh` (just-bash) ↔ bash
+- `echo`, `cat`, `ls`, … ↔ coreutils
+- `npm` ↔ apt/apk
+- `node` ↔ *not present, because the kernel never is*
+
+`/usr/bin/node` is a **launcher shim**, not a runtime: it implements node's CLI
+surface (`-e`, `-p`, `--version`, script dispatch) on top of the runtime the
+host already provides. (Historical note: in v0.1.0–v0.1.1 it was a bare marker
+file with no entry points, which made `node -e` a silent no-op — the bug that
+motivated writing this section. The file-shaped name for a runtime primitive
+needs a real body.)
+
+This is why images are ~15 MB instead of ~150 MB and why machines boot in
+milliseconds: there is no OS userland to ship and no kernel to boot — the
+"OS" (V8 + the Node API + the process model) is already resident in the host
+process and shared by every machine, the way containers share one kernel,
+except the shared layer here extends up through the language runtime and
+standard library.
+
+Two consequences:
+
+1. **Images can't pin a node version** — the API surface is a property of the
+   host runtime, exactly like Docker containers can't pin kernels. The
+   ecosystem answer is workerd's own idiom: **compatibility dates**. An image
+   manifest declaring its required runtime level (so a host can refuse an
+   image it can't faithfully run) is the roadmap item — Docker's
+   `platform: linux/arm64`, but for API surface instead of CPU architecture.
+2. **wasm-or-bust is the libc line.** Native binaries would need a syscall
+   layer that doesn't exist; wasm modules bring their world compiled in — the
+   moral equivalent of static binaries in a `FROM scratch` container.
+
+Spiritually this is closer to a unikernel / library OS than to Docker — the
+app links directly against the platform, no kernel boundary shipped — with the
+classic unikernel flaw fixed: the "library OS" isn't bespoke per app, it's the
+most widely known API surface in the world, shared and resident.
+
 ## The runtime fork
 
 Everything rests on a workerd fork
