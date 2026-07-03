@@ -35,6 +35,19 @@ SIGKILLed), and links `iso` onto your `PATH`. Re-running upgrades in place.
 Requires **Node.js ≥ 22** and **macOS on Apple Silicon**. If `iso` isn't found afterward, add the
 printed bin dir to your `PATH` (usually `~/.local/bin`).
 
+### Updating
+
+```bash
+iso update            # check + install the latest release (then: iso host stop && iso host start)
+iso update --check    # just report whether an update is available
+```
+
+`iso update` installs side-by-side under `~/.iso/dist/<version>` and flips the `iso` symlink —
+re-running the install one-liner does exactly the same thing. **Privacy note:** the check is a
+single GitHub API call (`releases/latest`); it happens only during `iso update`/`--check`, or at
+most once per 24 hours from `iso version` (cached in `~/.iso/update-check.json`). No other
+command phones home.
+
 ### Uninstall
 
 ```bash

@@ -333,8 +333,9 @@ async function cmdImages({ flags }) {
   if (!flags.all) rows = rows.filter((i) => i.repository !== "<none>");
   rows.sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0));
   printTable(
-    ["REPOSITORY", "TAG", "IMAGE ID", "CREATED", "SIZE"],
-    rows.map((i) => [i.repository, i.tag || "latest", (i.digest || "").replace(/^sha256:/, "").slice(0, 12) || "?", ago(i.createdAt), humanSize(i.size)]),
+    ["REPOSITORY", "TAG", "IMAGE ID", "CREATED", "SIZE", "RUNTIME"],
+    rows.map((i) => [i.repository, i.tag || "latest", (i.digest || "").replace(/^sha256:/, "").slice(0, 12) || "?", ago(i.createdAt), humanSize(i.size),
+      i.runtime?.compatDate ? i.runtime.compatDate + (i.runtime.minHost ? " (host>=" + i.runtime.minHost + ")" : "") : ""]),
   );
 }
 
@@ -848,6 +849,72 @@ async function cmdNetwork({ positional }) {
   die("Error: unknown network subcommand: " + sub + "\nSee 'iso network --help'.");
 }
 
+// -------- iso update (self-update from GitHub releases) --------
+// Privacy: the version check is ONE GitHub API call (api.github.com/…/releases/latest). It runs
+// only during `iso update`/`iso update --check`, or opportunistically from `iso version` at most
+// once per 24h; the result is cached in ~/.iso/update-check.json. No other command phones home.
+const UPDATE_REPO = "netanelgilad/iso";
+const UPDATE_CACHE = path.join(ISO_DIR, "update-check.json");
+function semverLess(a, b) { // a < b
+  const pa = String(a).replace(/^v/, "").split(".").map(Number), pb = String(b).replace(/^v/, "").split(".").map(Number);
+  for (let i = 0; i < 3; i++) { const d = (pa[i] || 0) - (pb[i] || 0); if (d) return d < 0; }
+  return false;
+}
+async function fetchLatestRelease() {
+  const res = await fetch("https://api.github.com/repos/" + UPDATE_REPO + "/releases/latest", {
+    headers: { accept: "application/vnd.github+json" }, signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error("GitHub API: HTTP " + res.status);
+  const j = await res.json();
+  return { tag: j.tag_name, url: j.html_url, publishedAt: j.published_at };
+}
+function readUpdateCache() { try { return JSON.parse(readFileSync(UPDATE_CACHE, "utf8")); } catch { return null; } }
+function writeUpdateCache(c) { try { mkdirSync(ISO_DIR, { recursive: true }); writeFileSync(UPDATE_CACHE, JSON.stringify(c, null, 2) + "\n"); } catch {} }
+// opportunistic check used by `iso version`: live at most once per 24h, cached otherwise.
+async function cachedUpdateCheck() {
+  const c = readUpdateCache();
+  if (c && Date.now() - (c.checkedAt || 0) < 24 * 3600 * 1000) return c;
+  try {
+    const latest = await fetchLatestRelease();
+    const fresh = { checkedAt: Date.now(), latest: latest.tag, url: latest.url };
+    writeUpdateCache(fresh);
+    return fresh;
+  } catch { return c; } // offline → stale cache (or nothing); never an error
+}
+
+async function cmdUpdate({ flags }) {
+  let latest;
+  try { latest = await fetchLatestRelease(); }
+  catch (e) { die("Error: cannot check for updates (" + e.message + ") — are you online?"); }
+  writeUpdateCache({ checkedAt: Date.now(), latest: latest.tag, url: latest.url });
+  const cur = "v" + CLI_VERSION;
+  if (!semverLess(cur, latest.tag)) {
+    console.log("iso is up to date (" + cur + (latest.tag !== cur ? "; latest release is " + latest.tag : "") + ")");
+    return;
+  }
+  console.log("update available: " + cur + " -> " + latest.tag + "   (" + latest.url + ")");
+  if (flags.check) { console.log("run `iso update` to install it."); return; }
+  // install by fetching + running the published installer — it is idempotent, installs
+  // side-by-side under ~/.iso/dist/<version>, and flips the `current` symlink (so the running
+  // `iso` on PATH points at the new version when it exits). Downgrades never happen: we only
+  // get here when latest > current.
+  console.log("installing " + latest.tag + " via the published installer…");
+  const r = spawnSync("bash", ["-c",
+    "curl -fsSL https://raw.githubusercontent.com/" + UPDATE_REPO + "/main/install.sh | ISO_VERSION=" + latest.tag + " bash"],
+    { stdio: "inherit" });
+  if (r.status !== 0) die("Error: update failed (installer exit " + r.status + "). You can retry with:\n  curl -fsSL https://raw.githubusercontent.com/" + UPDATE_REPO + "/main/install.sh | bash");
+  console.log("");
+  console.log("iso " + latest.tag + " installed.");
+  const s = loadState();
+  const endpoint = (s.active && s.contexts[s.active]?.host) || "http://127.0.0.1:8787";
+  if (await pingHost(endpoint)) {
+    console.log("the iso host is still running " + cur + " — restart it to finish the update:");
+    console.log("  iso host stop && iso host start");
+  } else {
+    console.log("start the host to finish the update:  iso host start");
+  }
+}
+
 async function cmdVersion() {
   console.log("Client:");
   console.log(" Version:    " + CLI_VERSION);
@@ -871,6 +938,11 @@ async function cmdVersion() {
   console.log("  Workerd:      " + r.workerd);
   console.log("  PID:          " + r.pid);
   console.log("  Images:       " + (r.images || []).join(", "));
+  // opportunistic update hint (cached, at most one API call per 24h — see cmdUpdate notes)
+  const uc = await cachedUpdateCheck();
+  if (uc?.latest && semverLess("v" + CLI_VERSION, uc.latest)) {
+    console.log("\nupdate available: " + uc.latest + " — run 'iso update'");
+  }
 }
 
 // -------- contexts (which iso host the CLI talks to) --------
@@ -1271,6 +1343,16 @@ const COMMANDS = {
     group: "experimental", summary: "Boot a vite dev server for a project inside a machine",
     usage: "iso dev MACHINE [PROJECT]", fn: cmdDev,
     extra: MACHINE_REF + "\nExperimental. Warms a vite dev server in the machine and routes it through the\nhost dev proxy (pair with `iso use-fork`).", flags: {},
+  },
+  update: {
+    group: "mgmt", summary: "Update iso to the latest release",
+    usage: "iso update [--check]", fn: cmdUpdate,
+    extra: "Checks the latest GitHub release and, if newer, installs it via the published\n" +
+      "installer (side-by-side under ~/.iso/dist/<version>; the `iso` symlink flips on\n" +
+      "success). Restart the host afterwards: iso host stop && iso host start.\n" +
+      "Privacy: this is one GitHub API call; only `update`, `update --check`, and a >=24h\n" +
+      "cached check from `iso version` ever phone home.",
+    flags: { check: { flags: ["--check"], desc: "Only report whether an update is available (dry run)" } },
   },
   version: {
     group: "mgmt", summary: "Show the iso client and host version information",

@@ -12,7 +12,7 @@
 // A machine id maps 1:1 to a Machine DO name (idFromName), so the control plane can re-address a
 // machine on exec/rm without storing the DO stub. Auth: optional bearer token (per-context).
 import { Buffer } from "node:buffer";
-import { Machine } from "./machine-do.mjs";
+import { Machine, CHILD_COMPAT_DATE } from "./machine-do.mjs";
 import { invokeUserModule } from "./user-module-isolate.mjs";
 import { governEgress, handlePolicyTagged } from "./network-egress.mjs";
 
@@ -459,6 +459,26 @@ export default {
         const mr = await env.HOST.fetch("http://host/image-inspect?ref=" + encodeURIComponent(image));
         if (mr.status === 404) return Response.json({ error: `Unable to find image '${image}' locally` }, { status: 404 });
         const manifest = mr.ok ? await mr.json() : {};
+        // RUNTIME COMPAT enforcement (docs/architecture.md "What's actually in an image"): the
+        // manifest's runtime field declares what the image REQUIRES; refuse what this host can't
+        // faithfully run — docker-style, like an image built for another platform. An absent
+        // field (legacy manifests) is unconstrained and runs fine.
+        if (manifest.runtime) {
+          const want = manifest.runtime.compatDate;
+          if (want && want > CHILD_COMPAT_DATE) {
+            return Response.json({ error: `image '${image}' requires runtime compat ${want}; this host provides ${CHILD_COMPAT_DATE} — run 'iso update'` }, { status: 400 });
+          }
+          const minHost = manifest.runtime.minHost;
+          const hostVer = env.ISO_HOST_INFO?.version || "0.0.0";
+          const older = (a, b) => { // semver-ish: is a < b
+            const pa = String(a).split(".").map(Number), pb = String(b).split(".").map(Number);
+            for (let i = 0; i < 3; i++) { const d = (pa[i] || 0) - (pb[i] || 0); if (d) return d < 0; }
+            return false;
+          };
+          if (minHost && older(hostVer, minHost)) {
+            return Response.json({ error: `image '${image}' requires iso host >= ${minHost}; this host is ${hostVer} — run 'iso update'` }, { status: 400 });
+          }
+        }
         const userCmd = [body.cmd, ...(body.args || [])].filter((x) => x !== undefined && x !== null && x !== "");
         const entry = Array.isArray(manifest.entrypoint) ? manifest.entrypoint : [];
         const argv = [...entry, ...(userCmd.length ? userCmd : (Array.isArray(manifest.cmd) ? manifest.cmd : []))];

@@ -22,6 +22,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { kCurrentWorker, Log, LogLevel, Miniflare, Response as MfResponse } from "miniflare";
+
+// the runtime compat level machines actually run with — stamped into every built/committed
+// image manifest (runtime.compatDate); enforcement lives in the control plane's run route.
+import { CHILD_COMPAT_DATE } from "./worker/machine-do.mjs";
 import { WebSocketServer } from "ws";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // packages/host
@@ -45,7 +49,7 @@ for (const [name, dir] of Object.entries(IMAGES)) {
 }
 
 const manifestCache = new Map();
-const HOST_VERSION = "0.1.2";
+const HOST_VERSION = "0.1.3";
 function buildImageManifest(dir) {
   const files = {};
   (function walk(d) {
@@ -166,6 +170,11 @@ function composeManifest({ digest, parentRef, meta, message, files, size, create
     history: [...(pm?.history || []), ...(meta.history || [])],
     createdAt: createdAt || new Date().toISOString(),
     ...(message ? { message } : {}),
+    // runtime compat (docs/architecture.md "What's actually in an image"): what this image
+    // REQUIRES of a host — like docker's `platform`, but for API surface. compatDate is stamped
+    // fresh with the host's current level; minHost is inherited only if a parent declared it
+    // (absent by default — most images don't need a floor on the host version).
+    runtime: { compatDate: CHILD_COMPAT_DATE, ...(pm?.runtime?.minHost ? { minHost: pm.runtime.minHost } : {}) },
     files, size,
   };
   for (const ch of meta.changes || []) applyChange(manifest, ch);
@@ -272,12 +281,12 @@ async function hostService(request) {
       tagged.add(digest);
       let m; try { m = manifestOf(digest); } catch { continue; }
       const c = repoTag.lastIndexOf(":");
-      out.push({ repository: repoTag.slice(0, c), tag: repoTag.slice(c + 1), digest, files: m.files, size: m.size, createdAt: m.createdAt });
+      out.push({ repository: repoTag.slice(0, c), tag: repoTag.slice(c + 1), digest, files: m.files, size: m.size, createdAt: m.createdAt, runtime: m.runtime || null });
     }
     for (const digest of storedDigests()) {
       if (tagged.has(digest)) continue;
       let m; try { m = manifestOf(digest); } catch { continue; }
-      out.push({ repository: "<none>", tag: "<none>", digest, files: m.files, size: m.size, createdAt: m.createdAt });
+      out.push({ repository: "<none>", tag: "<none>", digest, files: m.files, size: m.size, createdAt: m.createdAt, runtime: m.runtime || null });
     }
     return new MfResponse(JSON.stringify(out), { headers: { "content-type": "application/json" } });
   }
@@ -753,6 +762,7 @@ const mf = new Miniflare({
     // surfaced by GET /v0/version (`iso version`)
     ISO_HOST_INFO: {
       version: HOST_VERSION,
+      runtimeCompatDate: CHILD_COMPAT_DATE,
       node: process.version,
       pid: process.pid,
       workerd: process.env.MINIFLARE_WORKERD_PATH || "(miniflare default)",

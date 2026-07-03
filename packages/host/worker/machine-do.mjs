@@ -27,7 +27,9 @@ const CHILD_FLAGS = ["nodejs_compat", "nodejs_compat_v2", "experimental", "enabl
   // requests route in via cloudflare:node's handleAsNodeRequest({port}, request) — how published
   // ports (-p) reach a machine's serving process (the registry-on-the-platform capstone).
   "enable_nodejs_http_modules", "enable_nodejs_http_server_modules"];
-const CHILD_COMPAT_DATE = "2026-06-01";
+// The runtime compat level every machine's children run with. Exported: the host stamps it
+// into image manifests (runtime.compatDate) and the control plane enforces it at `iso run`.
+export const CHILD_COMPAT_DATE = "2026-06-01";
 // Per-stream ring bound. Sized for a prototype; a real host sizes to memory budget + spills the
 // tail to DO storage (Track B notes the spill is stubbed — `dropped` is counted, not persisted).
 const RING_MAX = 2000;

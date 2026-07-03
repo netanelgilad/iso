@@ -124,10 +124,12 @@ Two consequences:
 
 1. **Images can't pin a node version** — the API surface is a property of the
    host runtime, exactly like Docker containers can't pin kernels. The
-   ecosystem answer is workerd's own idiom: **compatibility dates**. An image
-   manifest declaring its required runtime level (so a host can refuse an
-   image it can't faithfully run) is the roadmap item — Docker's
-   `platform: linux/arm64`, but for API surface instead of CPU architecture.
+   ecosystem answer is workerd's own idiom: **compatibility dates**. Every
+   image manifest carries a `runtime` field (`{ compatDate, minHost? }`,
+   stamped at build/commit with the compat level machines actually run with);
+   `iso run` refuses an image that requires a newer runtime than the host
+   provides — Docker's `platform: linux/arm64`, but for API surface instead
+   of CPU architecture. Absent field (pre-v0.1.3 manifests) = unconstrained.
 2. **wasm-or-bust is the libc line.** Native binaries would need a syscall
    layer that doesn't exist; wasm modules bring their world compiled in — the
    moral equivalent of static binaries in a `FROM scratch` container.
