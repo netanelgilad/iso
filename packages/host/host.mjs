@@ -45,7 +45,7 @@ for (const [name, dir] of Object.entries(IMAGES)) {
 }
 
 const manifestCache = new Map();
-const HOST_VERSION = "0.1.1";
+const HOST_VERSION = "0.1.2";
 function buildImageManifest(dir) {
   const files = {};
   (function walk(d) {

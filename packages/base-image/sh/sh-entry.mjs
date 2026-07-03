@@ -106,11 +106,19 @@ export default async function main() {
     envOut.PATH = "/usr/bin:" + (ctx.cwd || cwd) + "/node_modules/.bin:/bin";
     envOut.HOME = "/root";
     Object.assign(envOut, sessionEnv);
+    // `node <flag...>` (e.g. -e/-p/--version): the fork's native spawn special-cases `node <arg>`
+    // as "run arg as a script", so `node -e` would try to run a file named "-e". Route flag-shaped
+    // node invocations through the launcher UNDER A NON-`node` NAME so the fork runs it AS a script
+    // and hands it the flags. Plain `node <script>` keeps the native path (unchanged).
+    let spawnName = name, spawnArgs = args;
+    if (name === "node" && (args.length === 0 || String(args[0]).startsWith("-"))) {
+      spawnArgs = ["/usr/lib/iso/node-cli.js", ...args];
+    }
     fgActive = true; // the child owns the terminal: output streams live, stdin routes to it
     try {
       return await new Promise((resolve) => {
         let c;
-        try { c = spawn(name, args, { cwd: ctx.cwd || cwd, env: envOut, stdio: "inherit" }); }
+        try { c = spawn(spawnName, spawnArgs, { cwd: ctx.cwd || cwd, env: envOut, stdio: "inherit" }); }
         catch (e) { resolve({ stdout: "", stderr: "sh: " + name + ": spawn failed: " + String((e && e.message) || e) + "\n", exitCode: 126 }); return; }
         c.on("exit", (code) => resolve({ stdout: "", stderr: "", exitCode: code ?? 0 }));
         c.on("error", (e) => resolve({ stdout: "", stderr: "sh: " + name + ": " + String((e && e.message) || e) + "\n", exitCode: 126 }));

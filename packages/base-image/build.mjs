@@ -103,10 +103,19 @@ for (const d of (args.length ? args : ["."])) {
 `,
 };
 for (const [name, src] of Object.entries(COREUTILS)) writeFileSync(path.join(OUT, "usr/bin", name), src);
-// usr/bin/node — a PATH marker: just-bash (custom-fs mode) only dispatches commands that exist
-// as files on PATH; sh's registered `node` external then runs it via the fork's native spawn,
-// which special-cases `node <script>` at resolution (this file's content is never executed).
-writeFileSync(path.join(OUT, "usr/bin/node"), "// node = the isolate runtime itself; `node <script>` is resolved natively by spawn\n");
+// usr/bin/node — a REAL launcher (node-launcher.cjs): script paths are special-cased by the
+// runner/spawn before it; this implements the rest of node's CLI surface (-e/-p/--eval/
+// --print/--version) with LOUD failures for anything unsupported. (`node -e` used to be a
+// silent no-op because this file was a bare PATH marker.) It still doubles as the PATH marker
+// just-bash needs to dispatch `node` as an external.
+{
+  const launcher = readFileSync(path.join(HERE, "node-launcher.cjs"));
+  writeFileSync(path.join(OUT, "usr/bin/node"), launcher);
+  // sh spawns `node` under this non-`node` name so the fork's native `node <script>` special-case
+  // runs the launcher AS a script (giving it the flags), instead of treating `-e` as a script path.
+  mkdirSync(path.join(OUT, "usr/lib/iso"), { recursive: true });
+  writeFileSync(path.join(OUT, "usr/lib/iso/node-cli.js"), launcher);
+}
 
 // usr/bin/sh — a REAL shell: just-bash + a native-node:fs adapter + a REPL over stdin/stdout,
 // bundled to ONE self-contained ESM file. sh-entry.mjs resolves bare "just-bash" from our
@@ -145,6 +154,11 @@ export default async function main() {
 }
 `);
 }
+
+// stamp the staging with the package version: `iso host start` rebuilds on mismatch, so
+// upgrades pick up overlay changes (launchers, coreutils, sh) without a manual rebuild.
+const PKG_VERSION = JSON.parse(readFileSync(path.resolve(HERE, "..", "..", "package.json"), "utf8")).version;
+writeFileSync(path.join(path.dirname(OUT), "version"), PKG_VERSION + "\n"); // OUTSIDE the staging (not part of the image)
 
 let files = 0, bytes = 0;
 (function count(d) { for (const e of readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) count(p); else { files++; bytes += statSync(p).size; } } })(OUT);

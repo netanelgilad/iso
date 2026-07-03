@@ -963,9 +963,12 @@ async function cmdHost({ flags, positional }) {
     const host = hostMjs();
     const workerd = resolveWorkerd();
     // first boot needs the base image rootfs — build it once into ~/.iso/base/.staging.
+    // The staging is version-stamped (…/base/version): a mismatch after an upgrade triggers a
+    // rebuild so overlay changes (launchers, coreutils, sh) actually land.
     const baseStaging = process.env.ISO_BASE_STAGING || path.join(ISO_DIR, "base", ".staging");
-    if (!existsSync(baseStaging)) {
-      process.stderr.write("base image rootfs missing — building it (one-time, ~30s)…\n");
+    const baseStamp = (() => { try { return readFileSync(path.join(path.dirname(baseStaging), "version"), "utf8").trim(); } catch { return null; } })();
+    if (!existsSync(baseStaging) || baseStamp !== CLI_VERSION) {
+      process.stderr.write((existsSync(baseStaging) ? "base image is from another iso version — rebuilding" : "base image rootfs missing — building it (one-time, ~30s)") + "…\n");
       const r = spawnSync(process.execPath, [BASE_BUILD_MJS], { stdio: "inherit", env: { ...process.env } });
       if (r.status !== 0) die("Error: base image build failed: node " + BASE_BUILD_MJS);
     }

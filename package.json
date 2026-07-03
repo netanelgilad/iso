@@ -1,6 +1,6 @@
 {
   "name": "iso-workspace",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "description": "iso — Docker's DX for V8-isolate machines. Install layout: this tree lives under ~/.iso/dist/<version> with its dependencies installed here so upward module resolution serves the CLI, host, and build files alike.",

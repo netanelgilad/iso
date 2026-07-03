@@ -1,6 +1,6 @@
 {
   "name": "@iso/registry",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "The iso image registry — a standalone content-addressed registry that also runs AS an iso image",
   "type": "module",

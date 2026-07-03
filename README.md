@@ -59,6 +59,12 @@ $ iso host start                         # boot the local daemon (first run buil
 iso host started
   Engine API:  http://127.0.0.1:8787   (pid 82711)
 
+$ iso run base node -e 'console.log("hello world")'   # run code in a fresh isolate
+hello world
+
+$ iso run base node -p '2 ** 10'         # -p prints the expression value
+1024
+
 $ iso run base npm install left-pad      # a machine runs REAL npm against the REAL registry
 
 added 1 package in 721ms

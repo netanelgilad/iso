@@ -70946,12 +70946,16 @@ async function main() {
     envOut.PATH = "/usr/bin:" + (ctx.cwd || cwd) + "/node_modules/.bin:/bin";
     envOut.HOME = "/root";
     Object.assign(envOut, sessionEnv);
+    let spawnName = name, spawnArgs = args;
+    if (name === "node" && (args.length === 0 || String(args[0]).startsWith("-"))) {
+      spawnArgs = ["/usr/lib/iso/node-cli.js", ...args];
+    }
     fgActive = true;
     try {
       return await new Promise((resolve2) => {
         let c13;
         try {
-          c13 = spawn(name, args, { cwd: ctx.cwd || cwd, env: envOut, stdio: "inherit" });
+          c13 = spawn(spawnName, spawnArgs, { cwd: ctx.cwd || cwd, env: envOut, stdio: "inherit" });
         } catch (e6) {
           resolve2({ stdout: "", stderr: "sh: " + name + ": spawn failed: " + String(e6 && e6.message || e6) + "\n", exitCode: 126 });
           return;
