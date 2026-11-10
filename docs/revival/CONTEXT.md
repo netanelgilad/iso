@@ -108,23 +108,76 @@ per-module work out to several isolates, not from threads.
   (`verify:build`) against an uncached build. Poisoning risk: only trusted builders may write
   shared entries; untrusted plugin output must be keyed per tenant.
 
+## Measurements (2026-11-10)
+
+### Local baseline: Layer 1 on stock workerd, Linux x64, demo `app/` (74 modules, 270 kB JS out)
+
+`verify:build` passes here: 4/4 files byte-identical to host Node. Cold build ~2.8 s, warm ~0.45–0.7 s.
+
+| What | Value | How measured |
+|---|---|---|
+| workerd process RSS | 79 MB boot → ~650–710 MB after build 1 → ~850–900 MB peak after build 2 | `/proc/<pid>/status` |
+| JS heap used (after GC) | 63–66 MB after build 1, **~47–49 MB** steady | inspector `Runtime.getHeapUsage` |
+| ArrayBuffer backing store | 51–68 MB, of which **36 MB is `node_modules` in memfs** (1188 files) | same + walking memfs |
+| Rolldown wasm memory, as shipped | **152–155 MB** (created with `initial: 2048` pages = 128 MB, then grows) | `memory.buffer.byteLength` |
+| Rolldown wasm, started at its declared minimum (1005 pages = 63 MB) | 87 → 90 MB over 3 builds, i.e. **+24–27 MB** of real working memory | same |
+| Same, with all bare-specifier deps `external` | 65.3 → 65.9 MB, i.e. **~3 MB** of working memory | same |
+
+Countable against the 128 MB limit today: ~48 (JS) + ~52–68 (buffers) + ~155 (wasm) ≈ **270–290 MB**.
+
+Reading: (1) the 128 MB wasm `initial` in `rolldown-binding.wasi-browser.js` is an arbitrary
+loader constant; (2) the 63 MB declared minimum is a link-time setting of the wasm build, not real
+data — rebuild with a small initial memory; (3) copying `node_modules` into the isolate costs
+36 MB; (4) bundling dependencies costs Rolldown ~25 MB, user code alone ~3 MB.
+Projection if 1–3 are fixed: ~48 JS + ~15 buffers + ~10–35 wasm ≈ **75–100 MB**, even with full
+production bundling of dependencies. First-build JS peak (63–92 MB before GC settles) is the
+remaining risk. **[unverified until rebuilt and rerun]**
+
+Local instrumentation (uncommitted edits in `/home/user/vite-workerd-demo/harness`): `INSPECT`
+env → inspector port in `host.mjs`; `/mem` route and `?external=1` on `/build` in
+`worker/driver.mjs`; scripts in the session scratchpad `measure/heap.mjs`, `measure/mem.mjs`.
+Gotcha: Node `fetch` to the inspector fails in this container; use the `ws` package directly on
+`ws://127.0.0.1:<port>/core:user:`.
+
+### Real Cloudflare cloud: probe worker `iso-vite-probe-limits` (Base44 account, workers.dev)
+
+Source in the session scratchpad `wr/probe/`; routes are behind a random path token. Delete it when done.
+
+| Question | Result |
+|---|---|
+| `eval` / `new Function` | **disallowed** in both the static Worker and a Dynamic Worker (`EvalError: Code generation from strings disallowed`) |
+| `WebAssembly.compile` / `new WebAssembly.Module` at runtime | **disallowed** in both (`Wasm code generation disallowed by embedder`) |
+| wasm passed as `{wasm: ArrayBuffer}` in a Dynamic Worker's `modules` | **works** (`import wasm from "./tiny.wasm"` is a `WebAssembly.Module`) |
+| `import("data:...")` | no such module |
+| `import.meta.url` in a Dynamic Worker | `undefined` |
+| `node:fs` writes to `/tmp` | work (root shows `bundle,tmp,dev`); persistence across requests not tested |
+| `WebAssembly.Memory({initial: 2048})` (128 MB reserve) | succeeds; shared memory constructs too |
+| Does a Dynamic Worker inherit the loader binding | no (`env.LOADER` absent unless passed) — passing it explicitly not tested |
+| Separate memory budget per isolate | parent holding 100 MB while two Dynamic Workers each filled 200 MB concurrently: all succeeded → budgets are **per isolate** |
+| Where the limit actually bites | filling in 16 MB steps: stream cut after **240 MB** of buffers; `Memory.grow` failed at **256 MB**. A single 150 MB typed array throws `RangeError`. Enforcement is lazy and far above 128 MB in short bursts. Do **not** design against this slack; treat 128 MB as the budget |
+
+Consequences: every piece of runtime code generation in Vite and its plugins (config loading,
+`new Function` in deps, wasm instantiation) must go through `env.LOADER` or be pre-bundled as a
+static module. "Any Vite plugin" therefore means: plugin code is loaded as Dynamic Worker modules.
+
+## Owner decisions (2026-11-10)
+
+- Scope: **any Vite project and plugin, as far as possible** (not just the Base44 template stack).
+- The unbundled import-map output is **not acceptable for production deploys**. Production must be
+  a real bundle, so incremental/cached *bundling* is the problem to solve; import maps stay at most
+  a dev/preview aid.
+- Cloudflare access: wrangler OAuth login done in this container against the **Base44** account
+  (token in `~/.config/.wrangler`, dies with the container). Only create `iso-vite-probe-*` workers.
+
 ## Plan
 
-0. Baseline: run Layer 1 here on stock workerd (Linux), record peak memory per component.
-   **Blocked:** `npm ci` in the demo checkout was denied by the session's permission classifier.
-1. Cloud port of Layer 1 without `UnsafeEval` and without the fallback service; deploy to a real
-   Cloudflare account; record what breaks. Needs a Cloudflare account/API token from the owner.
+0. ~~Baseline~~ done, see Measurements.
+1. Cloud port of Layer 1 without `UnsafeEval` and without the fallback service: Vite + Rolldown
+   wasm as modules of a Dynamic Worker (or a static Worker), files from a content-addressed store
+   instead of memfs-from-host; deploy and record what breaks. Shrink Rolldown's initial memory.
 2. Dependency externalization + L1 cache (R2/KV). Re-measure memory.
 3. L2 transform cache as a Vite plugin; L3 Tailwind decomposition.
 4. Import-map output mode; whole-build memo; then the optimized tier.
-
-## Open questions for the owner
-
-- Cloudflare account + API token for deploys (Workers Paid, Dynamic Workers enabled)?
-- Is "real Vite, unmodified plugin API" a hard requirement, or is "Vite-compatible output for the
-  Base44 template stack" enough for the first milestone? It decides how much arbitrary plugin
-  code must run in the isolate.
-- Is the fast (import map, unbundled) output acceptable for production deploys, or preview only?
 
 ## Recovered history from the Mac transcripts
 
