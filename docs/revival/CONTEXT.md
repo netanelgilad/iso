@@ -179,6 +179,29 @@ static module. "Any Vite plugin" therefore means: plugin code is loaded as Dynam
 3. L2 transform cache as a Vite plugin; L3 Tailwind decomposition.
 4. Import-map output mode; whole-build memo; then the optimized tier.
 
-## Recovered history from the Mac transcripts
+## Recovered history from the Mac (2026-11-10)
 
-_(pending — to be filled from `~/iso-revival-context/SUMMARY.md`)_
+Full text: [`mac-history-summary.md`](mac-history-summary.md) (written by a session on the owner's
+Mac; the files also sit in `~/iso-revival-context/` there, including all 127 owner prompts verbatim).
+What matters for this revival:
+
+- **The Claude Code transcripts are gone.** Only the owner's typed prompts (`~/.claude/history.jsonl`)
+  and the old agent's memory file (`memory/iso-cli-design.md`, 24 KB, not relayed) survive.
+- **What was sent to the Cloudflare team is not on the Mac.** The prepared artifact is the public
+  `vite-workerd-demo` README (2026-06-25), written for "the workerd team, Evan You from Vite etc".
+  Channel, recipients and any reply are unknown — ask the owner. Standing instruction from then:
+  no upstream issues until the owner says so.
+- **Origin of the project** is an apper branch, `claude/vid-isolates-no-sandbox-e4t1pj`:
+  `docs/plans/vite-in-isolates.md`, `docs/plans/isolate-sandbox-service.md`, `spikes/vite-in-workerd/`.
+  The service doc already holds a CAS design (blob store + manifest, three-tier cache, "precompute,
+  don't install", recorded hot-set, build as a pure function). Read it before designing the cache.
+- **Nothing was ever run on Cloudflare's network** before today. 128 MB was flagged as "the #1
+  go/no-go number" and never met: older figures were 453–532 MB RSS (Vite 7) and 250/450/900 MB
+  (Vite 8), all process RSS on the Mac.
+- **Sync-over-async is impossible in workerd** (old ADR): no second thread to park on, so no lazy
+  demand-paged filesystem behind sync `fs` calls. A content-addressed fs must be populated eagerly
+  from a known file set (the "recorded hot-set" idea), or reads must be made async.
+- Owner's realness rule: run the real tools, smallest possible patches, fix primitives instead of
+  working around them; no timer-based hacks.
+- Where work stopped (2026-07-03): fold everything into iso, bun-compiled binaries, Linux build;
+  iso issues #1–#14 are the backlog, #14 (hosted mode / iso.host) is "the north star".
